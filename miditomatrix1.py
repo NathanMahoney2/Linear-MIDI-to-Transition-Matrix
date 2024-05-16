@@ -2,6 +2,11 @@ import mido
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
+
+import numpy as np 
+from pandas import *
+
 mid = mido.MidiFile('todos.mid', clip=True)
 res = mid.tracks
 #print(res)
@@ -22,7 +27,7 @@ note_map = {
     55: "G3", 56: "G#3", 57: "A3", 58: "A#3", 59: "B3",
     60: "C4", 61: "C#4", 62: "D4", 63: "D#4", 64: "E4", 
     65: "F4", 66: "F#4", 67: "G4", 68: "G#4", 69: "A4", 
-    70: "A#4", 71: "B4", 72: "C5"
+    70: "A#4", 71: "B4", 72: "C5", 73: "C#5"
 }
 
 note_mapy = {
@@ -33,7 +38,7 @@ note_mapy = {
     55: "G2", 56: "G#2", 57: "A2", 58: "A#2", 59: "B2",
     60: "C3", 61: "C#3", 62: "D3", 63: "D#3", 64: "E3", 
     65: "F3", 66: "F#3", 67: "G3", 68: "G#3", 69: "A3", 
-    70: "A#3", 71: "B3", 72: "C4"
+    70: "A#3", 71: "B3", 72: "C4", 73: "C#4"
 }
 
 notes = []
@@ -100,8 +105,22 @@ note_names_x = [note_map[i] for i in range(35, 73)]
 note_names_y = [note_mapy[i] for i in range(35, 73)] 
 
 # Set the index labels to the note names for y-axis
-df.index = note_names_y
-df.columns = note_names_x
+#df.index = note_names_y
+#df.columns = note_names_x
 #df.to_excel('todos.xlsx', index=False)
-print(df) 
-        
+
+x_axis_labels = ["B1", "C2", "C#2", "D2", "D#2", "E2", "F2", 
+"F#2", "G2", "G#2", "A2", "A#2", "B2", "C3", "C#3", "D3", 
+"D#3", "E3", "F3", "F#3", "G3", "G#3", "A3", "A#3", "B3", 
+"C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4", "C5", "C#5"] # labels for x-axis
+y_axis_labels = ["B0", "C1", "C#1", "D1", "D#1", "E1", "F1",
+ "F#1", "G1", "G#1", "A1", "A#1", "B1", "C2", "C#2", "D2", 
+ "D#2", "E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2", 
+ "C3", "C#3", "D3", "D#3", "E3", "F3", "F#3", "G3", "G#3", "A3", "A#3", "B3", "C4", "C#4"] # labels for y-axis
+
+
+plt.figure(figsize=(10, 8))
+ax = sns.heatmap(df, linewidth=0.5, xticklabels=x_axis_labels, yticklabels=y_axis_labels,)
+plt.title("Transition Matrix of Melodic Progression") 
+plt.savefig('heatmap.png')
+plt.show()
