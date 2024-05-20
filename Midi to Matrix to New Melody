@@ -1,0 +1,224 @@
+import mido  # Import the mido library for working with MIDI files
+import matplotlib.pyplot as plt  # Import Matplotlib for plotting
+import numpy as np  # Import NumPy for numerical operations
+import pandas as pd  # Import Pandas for data manipulation
+import seaborn as sns  # Import Seaborn for creating heatmaps
+from mido import Message, MidiFile, MidiTrack  # Import specific classes from mido
+
+# Prompt the user to enter the name of the MIDI file
+mi = input("Enter the name of the midi file: ")
+
+# Load the MIDI file
+midy = mido.MidiFile(mi, clip=True)
+# Get the tracks from the MIDI file
+res = midy.tracks
+
+# Initialize an empty list to store note messages
+arr = []
+# Iterate through the messages in the first track
+for message in res[0]:
+    # If the message is a 'note_on' message, append the note to the list
+    if message.type == 'note_on':
+        arr.append(message.note)
+
+# Dictionary to map MIDI note numbers to note names (upper octave)
+note_map = {
+    35: "B1", 36: "C2", 37: "C#2", 38: "D2", 39: "D#2", 40: "E2",
+    41: "F2", 42: "F#2", 43: "G2", 44: "G#2", 45: "A2", 46: "A#2", 47: "B2", 
+    48: "C3", 49: "C#3", 50: "D3", 51: "D#3", 52: "E3", 53: "F3", 54: "F#3", 
+    55: "G3", 56: "G#3", 57: "A3", 58: "A#3", 59: "B3", 60: "C4", 61: "C#4", 
+    62: "D4", 63: "D#4", 64: "E4", 65: "F4", 66: "F#4", 67: "G4", 68: "G#4", 
+    69: "A4", 70: "A#4", 71: "B4", 72: "C5", 73: "C#5"
+}
+
+# Dictionary to map MIDI note numbers to note names (lower octave)
+note_mapy = {
+    35: "B0", 36: "C1", 37: "C#1", 38: "D1", 39: "D#1", 40: "E1",
+    41: "F1", 42: "F#1", 43: "G1", 44: "G#1", 45: "A1", 46: "A#1", 47: "B1", 
+    48: "C2", 49: "C#2", 50: "D2", 51: "D#2", 52: "E2", 53: "F2", 54: "F#2", 
+    55: "G2", 56: "G#2", 57: "A2", 58: "A#2", 59: "B2", 60: "C3", 61: "C#3", 
+    62: "D3", 63: "D#3", 64: "E3", 65: "F3", 66: "F#3", 67: "G3", 68: "G#3", 
+    69: "A3", 70: "A#3", 71: "B3", 72: "C4", 73: "C#4"
+}
+
+# Initialize an empty list to store probabilities of note transitions
+notes = []
+
+# Iterate through the sorted keys of the note_map dictionary
+for key in sorted(note_map.keys()):
+    # Initialize a dictionary to count occurrences of next notes
+    occurrences = {}
+    # Iterate through the list of notes
+    for i in range(len(arr) - 1):
+        # If the current note matches the key
+        if arr[i] == key:
+            next_num = arr[i + 1]  # Get the next note
+            if next_num not in occurrences:
+                occurrences[next_num] = 1  # Add the note to occurrences if not present
+            else:
+                occurrences[next_num] += 1  # Increment the count if already present
+
+    current_note = note_map[key]  # Get the note name for the current key
+
+    # Sort the occurrences by the note number
+    sorted_occurrences = sorted(occurrences.items(), key=lambda x: x[0])
+
+    # Convert the values in occurrences to a list and sum them
+    count_array = list(occurrences.values())
+    summed = sum(count_array)
+
+    # Initialize a list to store probabilities
+    probabilities = []
+    for note_num in range(35, 74):
+        if note_num in occurrences:
+            probabilities.append(occurrences[note_num] / summed)  # Calculate probability
+        else:
+            probabilities.append(0)  # Append 0 if the note is not in occurrences
+
+    # Ensure the probabilities list has 30 elements
+    while len(probabilities) < 30:
+        probabilities.append(0)
+
+    print(end="")  # Placeholder for print statement
+
+    # Initialize lists for note names and probabilities
+    note_names = []
+    note_prob = []
+
+    for note_num in range(35, 74):
+        if note_num in note_map:
+            note_names.append(note_map[note_num])  # Add note name
+            note_prob.append(probabilities[note_num - 35])  # Add corresponding probability
+
+    # Create a DataFrame with note names and probabilities
+    data = {'Note': note_names, 'Probability': note_prob}
+    df = pd.DataFrame(data)
+
+    # Append the list of probabilities to the notes list
+    notes.append(note_prob)
+
+# Create a DataFrame from the notes list
+df = pd.DataFrame(notes)
+
+# Create lists of note names for the x and y axes of the heatmap
+note_names_x = [note_map[i] for i in range(35, 73)]
+note_names_y = [note_mapy[i] for i in range(35, 73)]
+
+# Define labels for the x and y axes
+x_axis_labels = ["B1", "C2", "C#2", "D2", "D#2", "E2", "F2", 
+"F#2", "G2", "G#2", "A2", "A#2", "B2", "C3", "C#3", "D3", 
+"D#3", "E3", "F3", "F#3", "G3", "G#3", "A3", "A#3", "B3", 
+"C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4", "C5", "C#5"]
+y_axis_labels = ["B0", "C1", "C#1", "D1", "D#1", "E1", "F1",
+ "F#1", "G1", "G#1", "A1", "A#1", "B1", "C2", "C#2", "D2", 
+ "D#2", "E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2", 
+ "C3", "C#3", "D3", "D#3", "E3", "F3", "F#3", "G3", "G#3", "A3", "A#3", "B3", "C4", "C#4"]
+
+# Define the list of note names from B1 to C#5
+noted = ["B1", "C2", "C#2", "D2", "D#2", "E2", "F2", "F#2", "G2", "G#2",
+         "A2", "A#2", "B2", "C3", "C#3", "D3", "D#3", "E3", "F3", "F#3",
+         "G3", "G#3", "A3", "A#3", "B3", "C4", "C#4", "D4", "D#4", "E4",
+         "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4", "C5", "C#5"]
+
+# Convert the notes list to a NumPy array
+P = np.array(notes)
+
+# Identify rows where all elements are zero
+zero_rows = np.all(P == 0, axis=1)
+
+# Replace zero rows with uniform probabilities
+P[zero_rows] = (1 / len(P))
+
+# Normalize each row to sum to 1
+row_sums = P.sum(axis=1)
+P = P / row_sums[:, np.newaxis]
+
+# Determine the number of states (notes)
+states = len(P)
+# Randomly select an initial state
+state_now = np.random.choice(states, 1)
+
+# Map indices to note names
+index_to_note = {i: note for i, note in enumerate(noted)}
+
+# Initialize the previous state as None
+state_prev = None
+
+# Set the number of iterations for the sequence
+iter = 16
+# Initialize an empty list to store the sequence of notes
+note_array = []
+for i in range(iter):
+    # Get the probability vector for the current state
+    prob = P[state_now]
+    # Select the next state based on the probability vector
+    next_state = np.random.choice(states, 1, p=prob[0])
+
+    # Update the previous state
+    state_prev = state_now
+    # Update the current state
+    state_now = next_state
+    # Adjust the state value by adding 35
+    adj_state = state_now + 35
+
+    # Append the adjusted state to the note array
+    note_array.append(adj_state[0])
+
+# Create a new MIDI file with a single track
+mid = MidiFile(type=0, ticks_per_beat=96)
+track = MidiTrack()
+mid.tracks.append(track)
+
+# Add tempo and program change messages to the track
+track.append(mido.MetaMessage('set_tempo', tempo=500000, time=0))
+track.append(Message('program_change', program=12, time=0))
+
+# Add note on and note off messages to the track for each note in the sequence
+for i, note in enumerate(note_array):
+    track.append(Message('note_on', channel=0, note=note, velocity=100, time=0))
+    track.append(Message('note_off', channel=0, note=note, velocity=64, time=96))
+
+# Function to display the menu options to the user
+def display_menu():
+    print("Would you like to:")
+    print("1: Create a heatmap")
+    print("2: Generate a new midi file")
+    print("3: Both")
+
+# Loop to repeatedly prompt the user for input until a valid choice is made
+while True:
+    display_menu()
+    choose = input("Enter a number:")
+
+    try:
+        # Convert the input to an integer
+        choose = int(choose)
+        if choose == 1:
+            # Create and display a heatmap
+            plt.figure(figsize=(10, 8))
+            ax = sns.heatmap(df, linewidth=0.5, xticklabels=x_axis_labels, yticklabels=y_axis_labels)
+            plt.title("Transition Matrix of the Melodic Progression")
+            plt.savefig('heatmap.png')
+            plt.show()
+            break
+        elif choose == 2:
+            # Save the MIDI file and display a success message
+            print("Your new file has been successfully exported!")
+            mid.save('new_song.mid')
+            break
+        elif choose == 3:
+            # Save the MIDI file, display a success message, and create and display a heatmap
+            print("Your new file has been successfully exported!")
+            mid.save('new_song.mid')
+            plt.figure(figsize=(10, 8))
+            ax = sns.heatmap(df, linewidth=0.5, xticklabels=x_axis_labels, yticklabels=y_axis_labels)
+            plt.title("Transition Matrix of the Melodic Progression")
+            plt.savefig('heatmap.png')
+            plt.show()
+            break
+        else:
+            # Prompt the user to enter a valid number
+            print("Please enter a number between 1 and 3.")
+    except ValueError:
+        # Handle invalid input that cannot be converted to an integer
+        print("Invalid input. Please enter a number between 1 and 3.")
