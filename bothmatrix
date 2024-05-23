@@ -1,0 +1,200 @@
+import mido  # Import the mido library for working with MIDI files
+import matplotlib.pyplot as plt  # Import Matplotlib for plotting
+import numpy as np  # Import NumPy for numerical operations
+import pandas as pd  # Import Pandas for data manipulation
+import seaborn as sns  # Import Seaborn for creating heatmaps
+from mido import Message, MidiFile, MidiTrack  # Import specific classes from mido
+
+# Prompt the user to enter the name of the MIDI file
+mi = input("Enter the name of the midi file: ")
+
+# Load the MIDI file
+midy = mido.MidiFile(mi, clip=True)
+# Get the tracks from the MIDI file
+res = midy.tracks
+
+# Initialize lists to store note and time values
+note_values = []
+time_values = []
+# Iterate through the messages in the first track
+for message in res[0]:
+    if message.type == 'note_on':
+        note_values.append(message.note)
+    elif message.type == 'note_off':
+        time_values.append(message.time)
+
+# Ensure we have both note and time data
+assert len(note_values) == len(time_values), "Mismatch between note and time values."
+
+# Initialize transition matrices for notes and times
+note_transitions = []
+time_transitions = []
+
+# Get unique notes and times, ensuring no times are 0
+unique_notes = sorted(set(note_values))
+unique_times = sorted(set(time for time in time_values if time > 0))
+
+note_to_index = {note: idx for idx, note in enumerate(unique_notes)}
+time_to_index = {time: idx for idx, time in enumerate(unique_times)}
+
+# Calculate note transitions
+for current_note in unique_notes:
+    occurrences = {}
+    for i in range(len(note_values) - 1):
+        if note_values[i] == current_note:
+            next_note = note_values[i + 1]
+            if next_note not in occurrences:
+                occurrences[next_note] = 1
+            else:
+                occurrences[next_note] += 1
+
+    count_array = list(occurrences.values())
+    summed = sum(count_array)
+
+    probabilities = []
+    for note in unique_notes:
+        if note in occurrences:
+            probabilities.append(occurrences[note] / summed)
+        else:
+            probabilities.append(0)
+
+    note_transitions.append(probabilities)
+
+# Ensure time values less than 0.5 are set to zero and filter out zero times
+adjusted_time_values = [0 if time < 0.5 else time for time in time_values]
+adjusted_time_values = [time for time in adjusted_time_values if time > 0]
+
+# Calculate time transitions
+time_transitions = []
+
+for current_time in unique_times:
+    occurrences = {}
+    for i in range(len(adjusted_time_values) - 1):
+        if adjusted_time_values[i] == current_time:
+            next_time = adjusted_time_values[i + 1]
+            if next_time not in occurrences:
+                occurrences[next_time] = 1
+            else:
+                occurrences[next_time] += 1
+
+    count_array = list(occurrences.values())
+    summed = sum(count_array)
+
+    probabilities = []
+    for time in unique_times:
+        if time in occurrences:
+            probabilities.append(occurrences[time] / summed)
+        else:
+            probabilities.append(0)
+
+    time_transitions.append(probabilities)
+
+# Convert transition lists to NumPy arrays
+P_notes = np.array(note_transitions)
+P_times = np.array(time_transitions)
+
+# Normalize the matrices
+P_notes = P_notes / P_notes.sum(axis=1, keepdims=True)
+P_times = P_times / P_times.sum(axis=1, keepdims=True)
+
+# Determine the number of states
+note_states = len(P_notes)
+time_states = len(P_times)
+
+# Generate new sequence
+iter = 16
+note_sequence = []
+time_sequence = []
+
+# Randomly select initial states
+current_note_state = np.random.choice(note_states, 1)[0]
+current_time_state = np.random.choice(time_states, 1)[0]
+
+for _ in range(iter):
+    # Get probability vectors
+    note_prob = P_notes[current_note_state]
+    time_prob = P_times[current_time_state]
+
+    # Select next states based on probability vectors
+    next_note_state = np.random.choice(note_states, p=note_prob)
+    next_time_state = np.random.choice(time_states, p=time_prob)
+
+    # Append to sequences
+    note_sequence.append(unique_notes[next_note_state])
+    time_sequence.append(unique_times[next_time_state])
+
+    # Update current states
+    current_note_state = next_note_state
+    current_time_state = next_time_state
+
+# Create a new MIDI file with a single track
+mid = MidiFile(type=0, ticks_per_beat=96)
+track = MidiTrack()
+mid.tracks.append(track)
+
+# Add tempo and program change messages to the track
+track.append(mido.MetaMessage('set_tempo', tempo=500000, time=0))
+track.append(Message('program_change', program=12, time=0))
+
+# Add note on and note off messages to the track for each note and time in the sequence
+for note, time in zip(note_sequence, time_sequence):
+    track.append(Message('note_on', channel=0, note=note, velocity=100, time=0))
+    track.append(Message('note_off', channel=0, note=note, velocity=64, time=max(1, time)))
+
+# Function to display the menu options to the user
+def display_menu():
+    print("Would you like to:")
+    print("1: Create a heatmap")
+    print("2: Generate a new midi file")
+    print("3: Both")
+
+# Loop to repeatedly prompt the user for input until a valid choice is made
+while True:
+    display_menu()
+    choose = input("Enter a number:")
+
+    try:
+        # Convert the input to an integer
+        choose = int(choose)
+        if choose == 1:
+            # Create and display heatmaps for notes and times
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(pd.DataFrame(P_notes, columns=unique_notes, index=unique_notes), linewidth=0.5)
+            plt.title("Transition Matrix of Notes")
+            plt.savefig('note_heatmap.png')
+            plt.show()
+
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(pd.DataFrame(P_times, columns=unique_times, index=unique_times), linewidth=0.5)
+            plt.title("Transition Matrix of Times")
+            plt.savefig('time_heatmap.png')
+            plt.show()
+            break
+        elif choose == 2:
+            # Save the MIDI file and display a success message
+            print("Your new file has been successfully exported!")
+            mid.save('new_song.mid')
+            break
+        elif choose == 3:
+            # Save the MIDI file, display a success message, and create and display heatmaps
+            print("Your new file has been successfully exported!")
+            mid.save('new_song.mid')
+
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(pd.DataFrame(P_notes, columns=unique_notes, index=unique_notes), linewidth=0.5)
+            plt.title("Transition Matrix of Notes")
+            plt.savefig('note_heatmap.png')
+            plt.show()
+
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(pd.DataFrame(P_times, columns=unique_times, index=unique_times), linewidth=0.5)
+            plt.title("Transition Matrix of Times")
+            plt.savefig('time_heatmap.png')
+            plt.show()
+            break
+        else:
+            # Prompt the user to enter a valid number
+            print("Please enter a number between 1 and 3.")
+    except ValueError:
+        # Handle invalid input that cannot be converted to an integer
+        print("Invalid input. Please enter a number between 1 and 3.")
